@@ -107,6 +107,7 @@ function App() {
   const [isLoaded, setIsLoaded] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [midiDevices, setMidiDevices] = useState<string[]>([]);
+  const [lastMidiEvent, setLastMidiEvent] = useState<string>('');
   
   const [selectedExercise, setSelectedExercise] = useState(0);
   const [timeSig, setTimeSig] = useState(EXERCISES[0].timeSig);
@@ -465,12 +466,20 @@ function App() {
 
 
   // Handler MIDI Message
-  const handleMidiMessage = useCallback((command: number, note: number, velocity: number) => {
-    if (command === 144 && velocity > 0) {
+  const handleMidiMessage = useCallback((statusByte: number, note: number, velocity: number) => {
+    const messageType = statusByte & 0xF0; // Bỏ qua channel (nhận mọi kênh 1 - 16)
+    const isNoteOn = (messageType === 0x90 || statusByte === 144) && velocity > 0;
+    const isNoteOff = messageType === 0x80 || statusByte === 128 || ((messageType === 0x90 || statusByte === 144) && velocity === 0);
+
+    const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+    const noteName = noteNames[note % 12];
+    const octave = Math.floor(note / 12) - 1;
+
+    if (isNoteOn) {
+      setLastMidiEvent(`${noteName}${octave} (Mã MIDI: ${note}, Lực: ${velocity})`);
       setPressedKeys(prev => new Set(prev).add(note));
       playNoteSound(note, velocity);
-    }
-    if (command === 128 || (command === 144 && velocity === 0)) {
+    } else if (isNoteOff) {
       setPressedKeys(prev => {
         const newSet = new Set(prev);
         newSet.delete(note);
@@ -480,6 +489,7 @@ function App() {
   }, [playNoteSound]);
 
   const handleGlobalMidi = useCallback((e: any) => {
+    if (!e || !e.data || e.data.length < 2) return;
     const command = e.data[0];
     const note = e.data[1];
     const velocity = (e.data.length > 2) ? e.data[2] : 0;
@@ -495,23 +505,24 @@ function App() {
     }
 
     function onMIDISuccess(midiAccess: any) {
-      // Hàm cập nhật danh sách thiết bị
-      const updateDevices = () => {
+      const attachListeners = () => {
         const devices: string[] = [];
         for (let input of midiAccess.inputs.values()) {
           devices.push(input.name || 'Thiết bị MIDI không tên');
-        }
-        setMidiDevices(devices);
-      };
-
-      updateDevices(); // Lấy danh sách lần đầu
-
-      // Lắng nghe sự kiện cắm/rút thiết bị
-      midiAccess.onstatechange = () => {
-        updateDevices();
-        for (let input of midiAccess.inputs.values()) {
           input.onmidimessage = handleGlobalMidi;
         }
+        setMidiDevices(devices);
+        if (devices.length > 0) {
+          setMidiStatus(`Đã kết nối: ${devices.join(', ')}`);
+        }
+      };
+
+      // Gắn bộ lắng nghe ngay lập tức khi mở trang (sửa lỗi thiết bị cắm sẵn không nhận tín hiệu)
+      attachListeners();
+
+      // Lắng nghe sự kiện cắm/rút thiết bị sau đó
+      midiAccess.onstatechange = () => {
+        attachListeners();
       };
     }
 
@@ -614,6 +625,11 @@ function App() {
           </ul>
         ) : (
           <span style={{ color: 'gray', marginLeft: '5px' }}>Chưa tìm thấy đàn MIDI nào (Vẫn có thể dùng chuột).</span>
+        )}
+        {lastMidiEvent && (
+          <div style={{ marginTop: '8px', padding: '6px 10px', background: '#e8f5e9', borderRadius: '4px', color: '#2e7d32', fontWeight: 'bold', display: 'block' }}>
+            📡 Tín hiệu phím đàn vừa nhận: {lastMidiEvent}
+          </div>
         )}
       </div>
 
