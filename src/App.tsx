@@ -161,6 +161,11 @@ function App() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [playheadX, setPlayheadX] = useState<number | null>(null);
 
+  // Âm lượng tổng (0% - 200%), mặc định 160% để âm thanh to, rõ ngang YouTube
+  const [volume, setVolume] = useState<number>(160);
+  const masterGainRef = useRef<GainNode | null>(null);
+  const compressorRef = useRef<DynamicsCompressorNode | null>(null);
+
   const [isMetronomeOn, setIsMetronomeOn] = useState(false);
   const [currentBeatInBar, setCurrentBeatInBar] = useState<number>(-1);
   const scheduledMetronomeNodesRef = useRef<any[]>([]);
@@ -177,6 +182,42 @@ function App() {
 
   const [song, setSong] = useState<any[]>([]);
 
+  // Khởi tạo chuỗi xử lý âm thanh Master (Gain Boost + Dynamic Limiter chống vỡ tiếng)
+  const initAudioChain = useCallback(() => {
+    if (!audioCtxRef.current) {
+      audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+    }
+    const ctx = audioCtxRef.current;
+    
+    if (!masterGainRef.current) {
+      // Bộ Limiter / Compressor giữ âm thanh đầy đặn, ấm và không bị rè khi tăng âm lượng
+      const compressor = ctx.createDynamicsCompressor();
+      compressor.threshold.setValueAtTime(-14, ctx.currentTime);
+      compressor.knee.setValueAtTime(20, ctx.currentTime);
+      compressor.ratio.setValueAtTime(8, ctx.currentTime);
+      compressor.attack.setValueAtTime(0.003, ctx.currentTime);
+      compressor.release.setValueAtTime(0.2, ctx.currentTime);
+      compressor.connect(ctx.destination);
+      compressorRef.current = compressor;
+
+      // Master Gain cho phép khuếch đại âm thanh to hơn bình thường
+      const masterGain = ctx.createGain();
+      const gainVal = (volume / 100) * 1.5;
+      masterGain.gain.setValueAtTime(gainVal, ctx.currentTime);
+      masterGain.connect(compressor);
+      masterGainRef.current = masterGain;
+    }
+    return masterGainRef.current;
+  }, [volume]);
+
+  const handleVolumeChange = useCallback((newVol: number) => {
+    setVolume(newVol);
+    if (masterGainRef.current && audioCtxRef.current) {
+      const gainVal = (newVol / 100) * 1.5;
+      masterGainRef.current.gain.setValueAtTime(gainVal, audioCtxRef.current.currentTime);
+    }
+  }, []);
+
   const playMetronomeTick = useCallback((time: number, isDownbeat: boolean) => {
     if (!audioCtxRef.current) return null;
     const ctx = audioCtxRef.current;
@@ -189,7 +230,11 @@ function App() {
       const gain = ctx.createGain();
 
       osc.connect(gain);
-      gain.connect(ctx.destination);
+      if (masterGainRef.current) {
+        gain.connect(masterGainRef.current);
+      } else {
+        gain.connect(ctx.destination);
+      }
 
       const freq = isDownbeat ? 1400 : 900;
       osc.type = 'sine';
@@ -215,7 +260,8 @@ function App() {
     }
     
     if (instrumentRef.current) {
-      const gain = velocity / 127;
+      // Tăng lực nhấn phím để âm thanh dày và vang to hơn
+      const gain = Math.min(1.5, (velocity / 80) * 1.2);
       instrumentRef.current.play(midiNote, audioCtxRef.current?.currentTime, { gain });
     }
   }, []);
@@ -223,23 +269,25 @@ function App() {
   const loadSoundFont = useCallback(async () => {
     if (isLoaded && instrumentRef.current) return;
     
-    if (!audioCtxRef.current) {
-      audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-    }
-    if (audioCtxRef.current.state === 'suspended') {
-      await audioCtxRef.current.resume();
+    const masterGain = initAudioChain();
+    const ctx = audioCtxRef.current!;
+    if (ctx.state === 'suspended') {
+      await ctx.resume();
     }
     
     setMidiStatus('Đang tải âm thanh piano thật (vài MB)...');
     try {
-      const inst = await Soundfont.instrument(audioCtxRef.current, 'acoustic_grand_piano');
+      const inst = await Soundfont.instrument(ctx, 'acoustic_grand_piano', {
+        destination: masterGain,
+        gain: 1.5
+      });
       instrumentRef.current = inst;
       setIsLoaded(true);
       setMidiStatus('Tải xong âm thanh! Hãy thử bấm phím.');
     } catch (e) {
       setMidiStatus('Lỗi khi tải âm thanh.');
     }
-  }, [isLoaded]);
+  }, [isLoaded, initAudioChain]);
 
   // Cập nhật màu sắc nốt nhạc trực tiếp trên SVG DOM mà không cần vẽ lại toàn bộ VexFlow
   const updateNoteHighlights = useCallback((activeIdx: number) => {
@@ -337,7 +385,7 @@ function App() {
       chordData.midiNotes.forEach((midiNote: number) => {
         try {
           const node = instrumentRef.current.play(midiNote, noteStartTime, {
-            gain: 0.85,
+            gain: 1.25,
             duration: soundDur
           });
           if (node) scheduledNodes.push(node);
@@ -1028,6 +1076,25 @@ function App() {
               }}
               style={{ width: '65px', padding: '6px', fontSize: '15px', textAlign: 'center', borderRadius: '4px', border: '1px solid #90caf9' }}
             />
+          </div>
+
+          {/* Thanh chỉnh âm lượng (Có chế độ khuếch đại Boost to ngang YouTube) */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#fff', padding: '5px 12px', borderRadius: '6px', border: '1px solid #90caf9' }}>
+            <span style={{ fontSize: '16px' }}>{volume === 0 ? '🔇' : volume < 100 ? '🔉' : '🔊'}</span>
+            <label style={{ fontSize: '14px', fontWeight: 'bold', whiteSpace: 'nowrap' }}>Âm lượng:</label>
+            <input 
+              type="range"
+              min="0"
+              max="200"
+              step="5"
+              value={volume}
+              onChange={(e) => handleVolumeChange(parseInt(e.target.value))}
+              style={{ width: '85px', cursor: 'pointer', accentColor: '#1976d2' }}
+              title={`Âm lượng: ${volume}% (Kéo trên 100% để khuếch đại to ngang YouTube)`}
+            />
+            <span style={{ fontSize: '13px', fontWeight: 'bold', color: volume > 100 ? '#e65100' : '#333', minWidth: '48px', whiteSpace: 'nowrap' }}>
+              {volume}% {volume > 100 ? '⚡' : ''}
+            </span>
           </div>
 
           {/* Máy chạy phách (Metronome) có nút Bật / Tắt và đèn LED phách */}
