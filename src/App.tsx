@@ -143,6 +143,12 @@ function App() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [playheadX, setPlayheadX] = useState<number | null>(null);
 
+  const [isMetronomeOn, setIsMetronomeOn] = useState(false);
+  const [currentBeatInBar, setCurrentBeatInBar] = useState<number>(-1);
+  const scheduledMetronomeNodesRef = useRef<any[]>([]);
+  const isMetronomeOnRef = useRef(false);
+  isMetronomeOnRef.current = isMetronomeOn;
+
   const isPlayingRef = useRef(false);
   const animFrameRef = useRef<number | null>(null);
   const scheduledAudioNodesRef = useRef<any[]>([]);
@@ -152,6 +158,38 @@ function App() {
   const keysUsedToAdvanceRef = useRef<Set<number>>(new Set());
 
   const [song, setSong] = useState<any[]>([]);
+
+  const playMetronomeTick = useCallback((time: number, isDownbeat: boolean) => {
+    if (!audioCtxRef.current) return null;
+    const ctx = audioCtxRef.current;
+    if (ctx.state === 'suspended') {
+      ctx.resume();
+    }
+
+    try {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      const freq = isDownbeat ? 1400 : 900;
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, time);
+      osc.frequency.exponentialRampToValueAtTime(isDownbeat ? 600 : 400, time + 0.03);
+
+      const peakGain = isDownbeat ? 0.65 : 0.35;
+      gain.gain.setValueAtTime(peakGain, time);
+      gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.038);
+
+      osc.start(time);
+      osc.stop(time + 0.04);
+
+      return osc;
+    } catch (e) {
+      return null;
+    }
+  }, []);
 
   const playNoteSound = useCallback((midiNote: number, velocity: number = 80) => {
     if (audioCtxRef.current && audioCtxRef.current.state === 'suspended') {
@@ -225,8 +263,16 @@ function App() {
     });
     scheduledAudioNodesRef.current = [];
 
+    scheduledMetronomeNodesRef.current.forEach(node => {
+      try { node?.stop?.(); } catch (e) {}
+    });
+    scheduledMetronomeNodesRef.current = [];
+
     setPressedKeys(new Set());
     currentActiveIndexRef.current = -1;
+    if (!isMetronomeOnRef.current) {
+      setCurrentBeatInBar(-1);
+    }
   }, []);
 
   const startAutoPlay = useCallback(async () => {
@@ -262,7 +308,7 @@ function App() {
     const totalDuration = accumulatedSec;
     const audioStartTime = audioCtxRef.current!.currentTime + 0.06; // 60ms lead time
 
-    // Lên lịch phát âm thanh chuẩn xác 100% bằng đồng hồ phần cứng Web Audio
+    // Lên lịch phát âm thanh piano chuẩn xác 100% bằng đồng hồ phần cứng Web Audio
     const scheduledNodes: any[] = [];
     song.forEach((chordData, i) => {
       const noteStartTime = audioStartTime + timeRanges[i].startSec;
@@ -283,6 +329,18 @@ function App() {
       });
     });
     scheduledAudioNodesRef.current = scheduledNodes;
+
+    // Nếu máy gõ phách đang bật, lên lịch gõ phách chuẩn xác theo nhịp bài hát
+    if (isMetronomeOnRef.current) {
+      const beatsPerMeasure = parseInt(timeSig.split('/')[0], 10) || 4;
+      const totalBeats = Math.ceil(totalDuration / secondsPerBeat);
+      for (let b = 0; b < totalBeats; b++) {
+        const tickTime = audioStartTime + b * secondsPerBeat;
+        const isDownbeat = (b % beatsPerMeasure) === 0;
+        const osc = playMetronomeTick(tickTime, isDownbeat);
+        if (osc) scheduledMetronomeNodesRef.current.push(osc);
+      }
+    }
 
     // Vòng lặp 60fps đồng bộ giao diện người dùng (Playhead, bàn phím, bàn tay, sheet)
     currentActiveIndexRef.current = -1;
@@ -327,6 +385,13 @@ function App() {
         const smoothX = curX + (nextX - curX) * progress;
         setPlayheadX(smoothX);
 
+        // Nhấp nháy đèn phách theo thời gian thực nếu máy chạy phách đang bật
+        if (isMetronomeOnRef.current) {
+          const beatsPerMeasure = parseInt(timeSig.split('/')[0], 10) || 4;
+          const beat = Math.floor(elapsed / secondsPerBeat) % beatsPerMeasure;
+          setCurrentBeatInBar(beat);
+        }
+
         // Khi chuyển sang nốt mới: cập nhật màu nốt, phím đàn ảo và cuộn trang
         if (activeIdx !== currentActiveIndexRef.current) {
           currentActiveIndexRef.current = activeIdx;
@@ -347,7 +412,7 @@ function App() {
     };
 
     animFrameRef.current = requestAnimationFrame(updatePlaybackFrame);
-  }, [song, bpm, loadSoundFont, stopAutoPlay, updateNoteHighlights]);
+  }, [song, bpm, timeSig, loadSoundFont, stopAutoPlay, updateNoteHighlights, playMetronomeTick]);
 
   const resetToStart = useCallback(() => {
     stopAutoPlay();
@@ -360,7 +425,57 @@ function App() {
     if (scrollContainerRef.current) {
       scrollContainerRef.current.scrollTo({ left: 0, behavior: 'smooth' });
     }
+    if (!isMetronomeOnRef.current) {
+      setCurrentBeatInBar(-1);
+    }
   }, [stopAutoPlay, updateNoteHighlights]);
+
+  // Bộ gõ nhịp độc lập (khi không chạy Auto Play)
+  useEffect(() => {
+    if (!isMetronomeOn || isPlaying) {
+      if (!isPlaying) setCurrentBeatInBar(-1);
+      return;
+    }
+
+    if (!audioCtxRef.current) {
+      audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+    }
+    const ctx = audioCtxRef.current;
+    if (ctx.state === 'suspended') {
+      ctx.resume();
+    }
+
+    const beatsPerMeasure = parseInt(timeSig.split('/')[0], 10) || 4;
+    const secondsPerBeat = 60 / bpm;
+    let nextTime = ctx.currentTime + 0.05;
+    let beatCount = 0;
+
+    const intervalId = setInterval(() => {
+      const currentTime = ctx.currentTime;
+      while (nextTime < currentTime + 0.12) {
+        const beat = beatCount % beatsPerMeasure;
+        const isDownbeat = beat === 0;
+        playMetronomeTick(nextTime, isDownbeat);
+
+        const delayMs = Math.max(0, (nextTime - currentTime) * 1000);
+        setTimeout(() => {
+          if (isMetronomeOnRef.current && !isPlayingRef.current) {
+            setCurrentBeatInBar(beat);
+          }
+        }, delayMs);
+
+        nextTime += secondsPerBeat;
+        beatCount++;
+      }
+    }, 25);
+
+    return () => {
+      clearInterval(intervalId);
+      if (!isPlayingRef.current) {
+        setCurrentBeatInBar(-1);
+      }
+    };
+  }, [isMetronomeOn, isPlaying, bpm, timeSig, playMetronomeTick]);
 
   const loadCustomSheet = (textToParseInput?: any, timeSignature = timeSig) => {
     stopAutoPlay();
@@ -897,6 +1012,79 @@ function App() {
             />
           </div>
 
+          {/* Máy chạy phách (Metronome) có nút Bật / Tắt và đèn LED phách */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#fff', padding: '5px 12px', borderRadius: '6px', border: '1px solid #90caf9' }}>
+            <button
+              onClick={async () => {
+                const willBeOn = !isMetronomeOn;
+                if (willBeOn) {
+                  if (!audioCtxRef.current) {
+                    audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+                  }
+                  if (audioCtxRef.current.state === 'suspended') {
+                    await audioCtxRef.current.resume();
+                  }
+                } else {
+                  scheduledMetronomeNodesRef.current.forEach(node => {
+                    try { node?.stop?.(); } catch (e) {}
+                  });
+                  scheduledMetronomeNodesRef.current = [];
+                  setCurrentBeatInBar(-1);
+                }
+                setIsMetronomeOn(willBeOn);
+              }}
+              style={{
+                padding: '6px 12px',
+                fontSize: '14px',
+                fontWeight: 'bold',
+                borderRadius: '4px',
+                border: 'none',
+                cursor: 'pointer',
+                background: isMetronomeOn ? '#ff9800' : '#eceff1',
+                color: isMetronomeOn ? '#fff' : '#455a64',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                transition: 'all 0.2s ease',
+                boxShadow: isMetronomeOn ? '0 2px 4px rgba(255,152,0,0.3)' : 'none'
+              }}
+            >
+              {isMetronomeOn ? '🔔 Máy gõ phách: BẬT' : '🔕 Máy gõ phách: TẮT'}
+            </button>
+
+            {/* Đèn LED nhấp nháy theo từng phách trong ô nhịp */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              {Array.from({ length: parseInt(timeSig.split('/')[0], 10) || 4 }).map((_, idx) => {
+                const isCurrent = currentBeatInBar === idx;
+                const isDownbeat = idx === 0;
+                const activeColor = isDownbeat ? '#f44336' : '#2e7d32';
+                return (
+                  <div
+                    key={idx}
+                    style={{
+                      width: '22px',
+                      height: '22px',
+                      borderRadius: '50%',
+                      backgroundColor: isCurrent ? activeColor : (isMetronomeOn ? '#cfd8dc' : '#eceff1'),
+                      color: isCurrent ? '#fff' : (isMetronomeOn ? '#37474f' : '#90a4ae'),
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '11px',
+                      fontWeight: 'bold',
+                      boxShadow: isCurrent ? `0 0 10px ${activeColor}` : 'none',
+                      transform: isCurrent ? 'scale(1.25)' : 'scale(1)',
+                      transition: 'all 0.08s ease'
+                    }}
+                    title={`Phách ${idx + 1} (${isDownbeat ? 'Phách mạnh - Ting' : 'Phách nhẹ - Tách'})`}
+                  >
+                    {idx + 1}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
           <div style={{ display: 'flex', gap: '10px' }}>
             <button 
               onClick={() => {
@@ -928,7 +1116,7 @@ function App() {
           </div>
 
           <span style={{ fontSize: '13px', color: '#555', fontStyle: 'italic', marginLeft: 'auto' }}>
-            {isPlaying ? '⚡ Âm thanh Web Audio thời gian thực, nhịp phách liền mạch không trễ' : '💡 Bấm Chạy mẫu để nghe giai điệu hoàn chỉnh theo đúng nhịp phách'}
+            {isPlaying ? '⚡ Âm thanh Web Audio thời gian thực, nhịp phách liền mạch không trễ' : '💡 Bật máy gõ phách để tập giữ nhịp hoặc bấm Chạy mẫu để nghe giai điệu'}
           </span>
         </div>
 
