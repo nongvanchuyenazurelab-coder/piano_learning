@@ -1069,13 +1069,13 @@ function App() {
     const context = renderer.getContext();
     context.setFont('Arial', 10, '').setBackgroundFillStyle('#eed');
 
-    // Khóa Sol
-    const trebleStave = new Stave(10, 20, staveWidth);
+    // Khóa Sol (y = 25 để số ngón tay phía trên không bị chạm mép trên)
+    const trebleStave = new Stave(10, 25, staveWidth);
     trebleStave.addClef('treble').addTimeSignature(timeSig);
     trebleStave.setContext(context).draw();
 
-    // Khóa Fa
-    const bassStave = new Stave(10, 100, staveWidth);
+    // Khóa Fa (y = 115 để khoảng trống giữa 2 dòng nhạc thoáng đãng cho tên nốt Solfege)
+    const bassStave = new Stave(10, 115, staveWidth);
     bassStave.addClef('bass').addTimeSignature(timeSig);
     bassStave.setContext(context).draw();
 
@@ -1171,28 +1171,6 @@ function App() {
 
     const positions: number[] = [];
     const svgEl = containerRef.current.querySelector('svg');
-
-    if (svgEl) {
-      const trebleLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-      trebleLabel.setAttribute('x', '35');
-      trebleLabel.setAttribute('y', '14');
-      trebleLabel.setAttribute('fill', '#e65100');
-      trebleLabel.setAttribute('font-size', '11');
-      trebleLabel.setAttribute('font-weight', 'bold');
-      trebleLabel.setAttribute('font-family', 'Arial, sans-serif');
-      trebleLabel.textContent = '🟠 Tay Phải (Khóa Sol)';
-      svgEl.appendChild(trebleLabel);
-
-      const bassLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-      bassLabel.setAttribute('x', '35');
-      bassLabel.setAttribute('y', '94');
-      bassLabel.setAttribute('fill', '#1565c0');
-      bassLabel.setAttribute('font-size', '11');
-      bassLabel.setAttribute('font-weight', 'bold');
-      bassLabel.setAttribute('font-family', 'Arial, sans-serif');
-      bassLabel.textContent = '🔵 Tay Trái (Khóa Fa)';
-      svgEl.appendChild(bassLabel);
-    }
 
     trebleNotes.forEach((tNote, i) => {
       const x = tNote.getAbsoluteX();
@@ -1606,8 +1584,16 @@ function App() {
         borderBottom: '1px solid #1e2638', 
         padding: '12px 24px' 
       }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-          <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#94a3b8' }}>🎼 Bản nhạc 2 tay chuẩn VexFlow:</span>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#94a3b8' }}>🎼 Bản nhạc 2 tay chuẩn VexFlow:</span>
+            <span style={{ fontSize: '12px', color: '#fdba74', background: 'rgba(234, 88, 12, 0.15)', padding: '2px 8px', borderRadius: '4px', border: '1px solid rgba(234, 88, 12, 0.3)' }}>
+              🟠 Dòng trên: Khóa Sol 𝄞 (Tay Phải)
+            </span>
+            <span style={{ fontSize: '12px', color: '#93c5fd', background: 'rgba(37, 99, 235, 0.15)', padding: '2px 8px', borderRadius: '4px', border: '1px solid rgba(37, 99, 235, 0.3)' }}>
+              🔵 Dòng dưới: Khóa Fa 𝄢 (Tay Trái)
+            </span>
+          </div>
           <span style={{ fontSize: '12px', color: '#64748b' }}>
             {isPlaying ? '🎵 Đang chạy mẫu biểu diễn đồng bộ 60fps...' : 'Tập đàn theo nốt phát sáng trên khuông nhạc'}
           </span>
@@ -1622,8 +1608,8 @@ function App() {
             <div 
               style={{
                 position: 'absolute',
-                top: 15,
-                bottom: 35,
+                top: 20,
+                bottom: 25,
                 left: playheadX,
                 width: '2px',
                 backgroundColor: '#ef4444',
