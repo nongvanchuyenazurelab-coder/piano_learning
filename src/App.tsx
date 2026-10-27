@@ -299,20 +299,58 @@ function App() {
   // Cập nhật màu sắc nốt nhạc trực tiếp trên SVG DOM mà không cần vẽ lại toàn bộ VexFlow
   const updateNoteHighlights = useCallback((activeIdx: number) => {
     if (!containerRef.current) return;
-    song.forEach((_, idx) => {
-      const color = idx < activeIdx ? '#4caf50' : (idx === activeIdx ? '#2196f3' : '#000000');
-      const nodes = containerRef.current!.querySelectorAll(
-        `[id*="vf-note-t-${idx}"], [id*="vf-note-b-${idx}"]`
-      );
-      nodes.forEach((el: any) => {
-        el.style.fill = color;
-        el.style.stroke = color;
-        const children = el.querySelectorAll('path, text');
-        children.forEach((c: any) => {
-          c.style.fill = color;
-          c.style.stroke = color;
-        });
-      });
+    song.forEach((chordData, idx) => {
+      const isPast = idx < activeIdx;
+      const isActive = idx === activeIdx;
+
+      // Màu sắc theo tay & khóa:
+      // - Đã đánh qua: Xanh lá cây (#4caf50)
+      // - Đang đánh (Active):
+      //     + Khóa Sol (Tay Phải): Màu Cam (#e65100)
+      //     + Khóa Fa (Tay Trái): Màu Xanh dương (#1976d2)
+      // - Chưa tới lượt: Màu Đen (#000000)
+      const trebleColor = isPast ? '#4caf50' : (isActive ? '#e65100' : '#000000');
+      const bassColor = isPast ? '#4caf50' : (isActive ? '#1976d2' : '#000000');
+
+      const tNode = containerRef.current!.querySelector(`[id*="vf-note-t-${idx}"]`) as SVGElement | null;
+      if (tNode) {
+        if (chordData.isTrebleGhost) {
+          tNode.style.display = 'none';
+          tNode.style.opacity = '0';
+          tNode.style.visibility = 'hidden';
+          tNode.style.pointerEvents = 'none';
+        } else {
+          tNode.style.display = '';
+          tNode.style.opacity = '1';
+          tNode.style.visibility = 'visible';
+          tNode.style.fill = trebleColor;
+          tNode.style.stroke = trebleColor;
+          tNode.querySelectorAll('path, text').forEach((c: any) => {
+            c.style.fill = trebleColor;
+            c.style.stroke = trebleColor;
+          });
+        }
+      }
+
+      const bNode = containerRef.current!.querySelector(`[id*="vf-note-b-${idx}"]`) as SVGElement | null;
+      if (bNode) {
+        if (chordData.isBassGhost) {
+          bNode.style.display = 'none';
+          bNode.style.opacity = '0';
+          bNode.style.visibility = 'hidden';
+          bNode.style.pointerEvents = 'none';
+        } else {
+          bNode.style.display = '';
+          bNode.style.opacity = '1';
+          bNode.style.visibility = 'visible';
+          bNode.style.fill = bassColor;
+          bNode.style.stroke = bassColor;
+          bNode.querySelectorAll('path, text').forEach((c: any) => {
+            c.style.fill = bassColor;
+            c.style.stroke = bassColor;
+          });
+        }
+      }
     });
   }, [song]);
 
@@ -795,10 +833,15 @@ function App() {
         bNote.setStyle({ fillStyle: 'transparent', strokeStyle: 'transparent' });
       }
 
-      // Nốt đầu tiên đánh dấu màu xanh, còn lại màu đen
-      let color = index === 0 ? '#2196f3' : 'black';
-      if (!chordData.isTrebleGhost) tNote.setStyle({ fillStyle: color, strokeStyle: color });
-      if (!chordData.isBassGhost) bNote.setStyle({ fillStyle: color, strokeStyle: color });
+      // Nốt đầu tiên: Khóa Sol màu Cam, Khóa Fa màu Xanh dương, còn lại màu đen
+      if (!chordData.isTrebleGhost) {
+        const c = index === 0 ? '#e65100' : 'black';
+        tNote.setStyle({ fillStyle: c, strokeStyle: c });
+      }
+      if (!chordData.isBassGhost) {
+        const c = index === 0 ? '#1976d2' : 'black';
+        bNote.setStyle({ fillStyle: c, strokeStyle: c });
+      }
 
       trebleNotes.push(tNote);
       bassNotes.push(bNote);
@@ -811,9 +854,54 @@ function App() {
       Formatter.FormatAndDraw(context, bassStave, bassNotes);
     }
 
+    // Ẩn lập tức các nốt ghost (khi tay đó không đánh) để tách biệt rõ ràng 2 khóa
+    song.forEach((chordData, i) => {
+      if (chordData.isTrebleGhost) {
+        const el = containerRef.current?.querySelector(`[id*="vf-note-t-${i}"]`) as SVGElement | null;
+        if (el) {
+          el.style.display = 'none';
+          el.style.opacity = '0';
+          el.style.visibility = 'hidden';
+          el.style.pointerEvents = 'none';
+        }
+      }
+      if (chordData.isBassGhost) {
+        const el = containerRef.current?.querySelector(`[id*="vf-note-b-${i}"]`) as SVGElement | null;
+        if (el) {
+          el.style.display = 'none';
+          el.style.opacity = '0';
+          el.style.visibility = 'hidden';
+          el.style.pointerEvents = 'none';
+        }
+      }
+    });
+
     // Lấy toạ độ X của từng nốt để làm playhead và vẽ vạch nhịp
     const positions: number[] = [];
     const svgEl = containerRef.current.querySelector('svg');
+
+    // Thêm nhãn nhận diện Khóa Sol (Tay Phải) và Khóa Fa (Tay Trái) trực tiếp trên khuông nhạc
+    if (svgEl) {
+      const trebleLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      trebleLabel.setAttribute('x', '35');
+      trebleLabel.setAttribute('y', '14');
+      trebleLabel.setAttribute('fill', '#e65100');
+      trebleLabel.setAttribute('font-size', '11');
+      trebleLabel.setAttribute('font-weight', 'bold');
+      trebleLabel.setAttribute('font-family', 'Arial, sans-serif');
+      trebleLabel.textContent = '🟠 Tay Phải (Khóa Sol)';
+      svgEl.appendChild(trebleLabel);
+
+      const bassLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      bassLabel.setAttribute('x', '35');
+      bassLabel.setAttribute('y', '94');
+      bassLabel.setAttribute('fill', '#1565c0');
+      bassLabel.setAttribute('font-size', '11');
+      bassLabel.setAttribute('font-weight', 'bold');
+      bassLabel.setAttribute('font-family', 'Arial, sans-serif');
+      bassLabel.textContent = '🔵 Tay Trái (Khóa Fa)';
+      svgEl.appendChild(bassLabel);
+    }
 
     trebleNotes.forEach((tNote, i) => {
       const x = tNote.getAbsoluteX();
@@ -1241,6 +1329,18 @@ function App() {
             </div>
           </div>
         </details>
+      </div>
+
+      <div style={{ display: 'flex', gap: '15px', alignItems: 'center', marginBottom: 10, fontSize: '13px', flexWrap: 'wrap' }}>
+        <span style={{ fontWeight: 'bold', color: '#333' }}>🎼 Khuông nhạc:</span>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#fff3e0', padding: '3px 12px', borderRadius: '14px', border: '1px solid #ffcc80' }}>
+          <span style={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: '#e65100', display: 'inline-block' }}></span>
+          <strong style={{ color: '#e65100' }}>Khóa Sol (Dòng trên):</strong> Tay Phải (nốt nảy màu Cam 🟠)
+        </span>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#e3f2fd', padding: '3px 12px', borderRadius: '14px', border: '1px solid #90caf9' }}>
+          <span style={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: '#1976d2', display: 'inline-block' }}></span>
+          <strong style={{ color: '#1565c0' }}>Khóa Fa (Dòng dưới):</strong> Tay Trái (nốt nảy màu Xanh dương 🔵)
+        </span>
       </div>
 
       <div 
