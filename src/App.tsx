@@ -1023,6 +1023,41 @@ function App() {
     }
   }, [currentIndex, isPlaying, songStepsWithBeats, song, drawWaterfall, centerStageOnNotes]);
 
+  // Khi người dùng bấm chuyển đổi viewMode (Thác nước, Khuông nhạc, Cả hai), lập tức vẽ lại canvas và cập nhật nốt
+  useEffect(() => {
+    let timerId: any = null;
+    let rafId: number | null = null;
+
+    if (viewMode === 'waterfall' || viewMode === 'split') {
+      const renderCanvas = () => {
+        const curBeat = isPlaying ? currentBeatRef.current : (songStepsWithBeats[currentIndex]?.startBeat ?? 0);
+        drawWaterfall(curBeat);
+        if (song[currentIndex]?.midiNotes?.length > 0) {
+          centerStageOnNotes(song[currentIndex].midiNotes, false);
+        }
+      };
+
+      // 1. Vẽ tức thì ngay khi state đổi
+      renderCanvas();
+      // 2. Vẽ lại ở frame kế tiếp khi browser đã layout lại DOM
+      rafId = requestAnimationFrame(renderCanvas);
+      // 3. Backup thêm 50ms để chắc chắn kích thước viewport/scroll đã ổn định
+      timerId = setTimeout(renderCanvas, 50);
+    }
+
+    if (viewMode === 'sheet' || viewMode === 'split') {
+      updateNoteHighlights(currentIndex);
+      rafId = requestAnimationFrame(() => {
+        updateNoteHighlights(currentIndex);
+      });
+    }
+
+    return () => {
+      if (rafId !== null) cancelAnimationFrame(rafId);
+      if (timerId !== null) clearTimeout(timerId);
+    };
+  }, [viewMode, drawWaterfall, isPlaying, songStepsWithBeats, currentIndex, song, centerStageOnNotes, updateNoteHighlights]);
+
   // Vẽ khuông nhạc VexFlow
   useEffect(() => {
     if (!containerRef.current || song.length === 0) return;
@@ -1564,82 +1599,84 @@ function App() {
         </div>
       </div>
 
-      {/* 3. SHEET MUSIC SECTION (Conditional) */}
-      {(viewMode === 'sheet' || viewMode === 'split') && (
-        <section style={{ background: '#131722', borderBottom: '1px solid #1e2638', padding: '12px 24px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-            <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#94a3b8' }}>🎼 Bản nhạc 2 tay chuẩn VexFlow:</span>
-            <span style={{ fontSize: '12px', color: '#64748b' }}>
-              {isPlaying ? '🎵 Đang chạy mẫu biểu diễn đồng bộ 60fps...' : 'Tập đàn theo nốt phát sáng trên khuông nhạc'}
-            </span>
-          </div>
+      {/* 3. SHEET MUSIC SECTION */}
+      <section style={{ 
+        display: (viewMode === 'sheet' || viewMode === 'split') ? 'block' : 'none',
+        background: '#131722', 
+        borderBottom: '1px solid #1e2638', 
+        padding: '12px 24px' 
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+          <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#94a3b8' }}>🎼 Bản nhạc 2 tay chuẩn VexFlow:</span>
+          <span style={{ fontSize: '12px', color: '#64748b' }}>
+            {isPlaying ? '🎵 Đang chạy mẫu biểu diễn đồng bộ 60fps...' : 'Tập đàn theo nốt phát sáng trên khuông nhạc'}
+          </span>
+        </div>
 
-          <div 
-            ref={scrollContainerRef}
-            style={{ overflowX: 'auto', width: '100%', position: 'relative', background: '#fff', borderRadius: '6px', boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}
-          >
-            <div ref={containerRef} style={{ display: 'inline-block', padding: '5px' }} />
-            {playheadX !== null && (
-              <div 
-                style={{
-                  position: 'absolute',
-                  top: 15,
-                  bottom: 35,
-                  left: playheadX,
-                  width: '2px',
-                  backgroundColor: '#ef4444',
-                  boxShadow: '0 0 8px rgba(239, 68, 68, 0.9)',
-                  pointerEvents: 'none',
-                  zIndex: 10,
-                  transition: isPlaying ? 'none' : 'left 0.1s ease-out'
-                }}
-              >
-                <div style={{
-                  width: 0,
-                  height: 0,
-                  borderLeft: '5px solid transparent',
-                  borderRight: '5px solid transparent',
-                  borderTop: '8px solid #ef4444',
-                  marginLeft: '-4px'
-                }} />
-              </div>
-            )}
-          </div>
-        </section>
-      )}
+        <div 
+          ref={scrollContainerRef}
+          style={{ overflowX: 'auto', width: '100%', position: 'relative', background: '#fff', borderRadius: '6px', boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}
+        >
+          <div ref={containerRef} style={{ display: 'inline-block', padding: '5px' }} />
+          {playheadX !== null && (
+            <div 
+              style={{
+                position: 'absolute',
+                top: 15,
+                bottom: 35,
+                left: playheadX,
+                width: '2px',
+                backgroundColor: '#ef4444',
+                boxShadow: '0 0 8px rgba(239, 68, 68, 0.9)',
+                pointerEvents: 'none',
+                zIndex: 10,
+                transition: isPlaying ? 'none' : 'left 0.1s ease-out'
+              }}
+            >
+              <div style={{
+                width: 0,
+                height: 0,
+                borderLeft: '5px solid transparent',
+                borderRight: '5px solid transparent',
+                borderTop: '8px solid #ef4444',
+                marginLeft: '-4px'
+              }} />
+            </div>
+          )}
+        </div>
+      </section>
 
       {/* 4. MAIN FALLING NOTES WATERFALL & 88-KEY PIANO STAGE (Full-Width, Edge-to-Edge) */}
-      {(viewMode === 'waterfall' || viewMode === 'split') && (
-        <main style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#0a0c12' }}>
-          
-          <div 
-            ref={mainStageScrollRef}
-            style={{ 
-              width: '100%', 
-              overflowX: 'auto', 
-              paddingTop: '15px', 
-              paddingBottom: '25px',
-              background: '#0a0c12',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center'
-            }}
-          >
-            <div style={{ width: TOTAL_KEYBOARD_WIDTH, position: 'relative', boxShadow: '0 0 30px rgba(0,0,0,0.8)' }}>
-              
-              {/* Thác nước Canvas */}
-              <canvas 
-                ref={canvasRef} 
-                width={TOTAL_KEYBOARD_WIDTH} 
-                height={WATERFALL_HEIGHT} 
-                style={{ 
-                  display: 'block', 
-                  background: '#0a0c12',
-                  borderTop: '1px solid #1e2638',
-                  borderLeft: '1px solid #1e2638',
-                  borderRight: '1px solid #1e2638'
-                }} 
-              />
+      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#0a0c12' }}>
+        
+        <div 
+          ref={mainStageScrollRef}
+          style={{ 
+            width: '100%', 
+            overflowX: 'auto', 
+            paddingTop: '15px', 
+            paddingBottom: '25px',
+            background: '#0a0c12',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center'
+          }}
+        >
+          <div style={{ width: TOTAL_KEYBOARD_WIDTH, position: 'relative', boxShadow: '0 0 30px rgba(0,0,0,0.8)' }}>
+            
+            {/* Thác nước Canvas: Chỉ hiển thị khi ở chế độ waterfall hoặc split */}
+            <canvas 
+              ref={canvasRef} 
+              width={TOTAL_KEYBOARD_WIDTH} 
+              height={WATERFALL_HEIGHT} 
+              style={{ 
+                display: (viewMode === 'waterfall' || viewMode === 'split') ? 'block' : 'none', 
+                background: '#0a0c12',
+                borderTop: '1px solid #1e2638',
+                borderLeft: '1px solid #1e2638',
+                borderRight: '1px solid #1e2638'
+              }} 
+            />
 
               {/* Bàn phím 88 phím đàn Piano ghép nối trực tiếp bên dưới thác nước */}
               <div style={{ 
@@ -1820,7 +1857,7 @@ function App() {
           </div>
 
         </main>
-      )}
+
 
       {/* 5. FOOTER COLLAPSIBLE: TỰ GÕ BẢN NHẠC */}
       <footer style={{ background: '#11141f', borderTop: '1px solid #1e2638', padding: '12px 24px' }}>
