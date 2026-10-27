@@ -98,46 +98,53 @@ const EXERCISES = [
 ];
 
 const HandIcon = ({ isLeft, activeFingers, label }: { isLeft: boolean, activeFingers: Set<string>, label: string }) => {
-  const getFill = (f: string) => activeFingers.has(f) ? '#ff5722' : '#ffccbc';
+  const getFill = (f: string) => {
+    if (activeFingers.has(f)) {
+      return isLeft ? '#1976d2' : '#e65100';
+    }
+    return isLeft ? '#bbdefb' : '#ffccbc';
+  };
   
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', margin: '0 20px' }}>
-      <svg width="100" height="100" viewBox="0 0 100 100" style={{ filter: 'drop-shadow(0px 2px 4px rgba(0,0,0,0.2))' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', margin: '0 10px' }}>
+      <svg width="100" height="100" viewBox="0 0 100 100" style={{ filter: 'drop-shadow(0px 2px 4px rgba(0,0,0,0.15))' }}>
         {isLeft ? (
           <g>
-            <rect x="15" y="45" width="70" height="50" rx="15" fill="#ffe0b2" />
+            <rect x="15" y="45" width="70" height="50" rx="15" fill="#e1f5fe" stroke="#90caf9" strokeWidth="1" />
             <rect x="15" y="15" width="12" height="40" rx="6" fill={getFill('5')} />
-            <text x="21" y="40" fontSize="12" fontWeight="bold" textAnchor="middle" fill={activeFingers.has('5') ? '#fff' : '#555'}>5</text>
+            <text x="21" y="40" fontSize="12" fontWeight="bold" textAnchor="middle" fill={activeFingers.has('5') ? '#fff' : '#1565c0'}>5</text>
             <rect x="30" y="5" width="12" height="50" rx="6" fill={getFill('4')} />
-            <text x="36" y="40" fontSize="12" fontWeight="bold" textAnchor="middle" fill={activeFingers.has('4') ? '#fff' : '#555'}>4</text>
+            <text x="36" y="40" fontSize="12" fontWeight="bold" textAnchor="middle" fill={activeFingers.has('4') ? '#fff' : '#1565c0'}>4</text>
             <rect x="45" y="0" width="12" height="55" rx="6" fill={getFill('3')} />
-            <text x="51" y="40" fontSize="12" fontWeight="bold" textAnchor="middle" fill={activeFingers.has('3') ? '#fff' : '#555'}>3</text>
+            <text x="51" y="40" fontSize="12" fontWeight="bold" textAnchor="middle" fill={activeFingers.has('3') ? '#fff' : '#1565c0'}>3</text>
             <rect x="60" y="10" width="12" height="45" rx="6" fill={getFill('2')} />
-            <text x="66" y="40" fontSize="12" fontWeight="bold" textAnchor="middle" fill={activeFingers.has('2') ? '#fff' : '#555'}>2</text>
+            <text x="66" y="40" fontSize="12" fontWeight="bold" textAnchor="middle" fill={activeFingers.has('2') ? '#fff' : '#1565c0'}>2</text>
             <g transform="translate(73, 30) rotate(25)">
               <rect x="0" y="0" width="14" height="35" rx="7" fill={getFill('1')} />
-              <text x="7" y="25" fontSize="12" fontWeight="bold" textAnchor="middle" fill={activeFingers.has('1') ? '#fff' : '#555'} transform="rotate(-25, 7, 25)">1</text>
+              <text x="7" y="25" fontSize="12" fontWeight="bold" textAnchor="middle" fill={activeFingers.has('1') ? '#fff' : '#1565c0'} transform="rotate(-25, 7, 25)">1</text>
             </g>
           </g>
         ) : (
           <g>
-            <rect x="15" y="45" width="70" height="50" rx="15" fill="#ffe0b2" />
+            <rect x="15" y="45" width="70" height="50" rx="15" fill="#fff3e0" stroke="#ffcc80" strokeWidth="1" />
             <g transform="translate(13, 20) rotate(-25)">
               <rect x="0" y="0" width="14" height="35" rx="7" fill={getFill('1')} />
-              <text x="7" y="25" fontSize="12" fontWeight="bold" textAnchor="middle" fill={activeFingers.has('1') ? '#fff' : '#555'} transform="rotate(25, 7, 25)">1</text>
+              <text x="7" y="25" fontSize="12" fontWeight="bold" textAnchor="middle" fill={activeFingers.has('1') ? '#fff' : '#bf360c'} transform="rotate(25, 7, 25)">1</text>
             </g>
             <rect x="28" y="10" width="12" height="45" rx="6" fill={getFill('2')} />
-            <text x="34" y="40" fontSize="12" fontWeight="bold" textAnchor="middle" fill={activeFingers.has('2') ? '#fff' : '#555'}>2</text>
+            <text x="34" y="40" fontSize="12" fontWeight="bold" textAnchor="middle" fill={activeFingers.has('2') ? '#fff' : '#bf360c'}>2</text>
             <rect x="43" y="0" width="12" height="55" rx="6" fill={getFill('3')} />
-            <text x="49" y="40" fontSize="12" fontWeight="bold" textAnchor="middle" fill={activeFingers.has('3') ? '#fff' : '#555'}>3</text>
+            <text x="49" y="40" fontSize="12" fontWeight="bold" textAnchor="middle" fill={activeFingers.has('3') ? '#fff' : '#bf360c'}>3</text>
             <rect x="58" y="5" width="12" height="50" rx="6" fill={getFill('4')} />
-            <text x="64" y="40" fontSize="12" fontWeight="bold" textAnchor="middle" fill={activeFingers.has('4') ? '#fff' : '#555'}>4</text>
+            <text x="64" y="40" fontSize="12" fontWeight="bold" textAnchor="middle" fill={activeFingers.has('4') ? '#fff' : '#bf360c'}>4</text>
             <rect x="73" y="15" width="12" height="40" rx="6" fill={getFill('5')} />
-            <text x="79" y="40" fontSize="12" fontWeight="bold" textAnchor="middle" fill={activeFingers.has('5') ? '#fff' : '#555'}>5</text>
+            <text x="79" y="40" fontSize="12" fontWeight="bold" textAnchor="middle" fill={activeFingers.has('5') ? '#fff' : '#bf360c'}>5</text>
           </g>
         )}
       </svg>
-      <span style={{ fontSize: 14, fontWeight: 'bold', marginTop: 5, color: '#555' }}>{label}</span>
+      <span style={{ fontSize: 13, fontWeight: 'bold', marginTop: 5, color: isLeft ? '#1565c0' : '#e65100', display: 'flex', alignItems: 'center', gap: 4 }}>
+        {isLeft ? '🔵' : '🟠'} {label}
+      </span>
     </div>
   );
 };
@@ -1269,14 +1276,24 @@ function App() {
       </div>
 
       <div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 10 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 10, flexWrap: 'wrap', gap: 10 }}>
           <div>
             <h3 style={{ margin: '0 0 5px 0' }}>Bàn phím 88 phím (A0 - C8)</h3>
             <span style={{ fontSize: '13px', color: '#666' }}>
-              {isPlaying ? '🎵 Đang chạy mẫu biểu diễn theo nhịp phách...' : 'Tập đánh phím theo nốt màu xanh trên khuông nhạc và phím gợi ý'}
+              {isPlaying ? '🎵 Đang chạy mẫu biểu diễn theo nhịp phách...' : 'Tập đánh phím theo nốt trên khuông nhạc và phím gợi ý'}
             </span>
+            <div style={{ marginTop: 8, display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#e3f2fd', padding: '3px 10px', borderRadius: '14px', border: '1px solid #90caf9' }}>
+                <span style={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: '#1976d2', display: 'inline-block' }}></span>
+                <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#1565c0' }}>🔵 Tay Trái (Khóa Fa / &lt; C4): Nốt &amp; phím màu Xanh dương</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#fff3e0', padding: '3px 10px', borderRadius: '14px', border: '1px solid #ffcc80' }}>
+                <span style={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: '#e65100', display: 'inline-block' }}></span>
+                <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#e65100' }}>🟠 Tay Phải (Khóa Sol / &ge; C4): Nốt &amp; phím màu Cam</span>
+              </div>
+            </div>
           </div>
-          <div style={{ display: 'flex', gap: '30px', paddingRight: '20px' }}>
+          <div style={{ display: 'flex', gap: '20px', paddingRight: '20px' }}>
             <HandIcon isLeft={true} activeFingers={activeLeftFingers} label="Tay Trái" />
             <HandIcon isLeft={false} activeFingers={activeRightFingers} label="Tay Phải" />
           </div>
@@ -1294,48 +1311,113 @@ function App() {
           }}
         >
           <div style={{ display: 'inline-flex', position: 'relative', height: 150 }}>
-            {keys.map((k) => (
-              <div
-                key={k.note}
-                onMouseDown={() => {
-                  handleMidiMessage(144, k.note, 80);
-                }}
-                onMouseUp={() => {
-                  handleMidiMessage(128, k.note, 0);
-                }}
-                onMouseLeave={() => {
-                  handleMidiMessage(128, k.note, 0);
-                }}
-                style={{
-                  width: k.isBlack ? 20 : 30, // Chỉnh nhỏ lại một chút
-                  height: k.isBlack ? 90 : 150,
-                  background: pressedKeys.has(k.note) ? '#4caf50' : (targetNotes.includes(k.note) ? (k.isBlack ? '#f57c00' : '#ffcc80') : (k.isBlack ? '#333' : '#fff')),
-                  border: '1px solid #333',
-                  marginLeft: k.isBlack ? -10 : 0,
-                  marginRight: k.isBlack ? -10 : 0,
-                  zIndex: k.isBlack ? 1 : 0,
-                  color: k.isBlack ? '#fff' : '#000',
-                  display: 'flex',
-                  alignItems: 'flex-end',
-                  justifyContent: 'center',
-                  paddingBottom: 5,
-                  cursor: 'pointer',
-                  borderRadius: '0 0 4px 4px',
-                  userSelect: 'none',
-                  flexShrink: 0
-                }}
-              >
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', opacity: (k.label.includes('C') || targetNotes.includes(k.note)) ? 1 : 0 }}>
-                  {currentFingeringMap[k.note] && (
-                    <div style={{ width: 14, height: 14, borderRadius: '50%', backgroundColor: '#ff5722', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 'bold', marginBottom: 2 }}>
-                      {currentFingeringMap[k.note]}
-                    </div>
-                  )}
-                  {targetNotes.includes(k.note) && !currentFingeringMap[k.note] && <div style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: 'red', marginBottom: 2 }} />}
-                  <span style={{ fontSize: 10 }}>{k.label}</span>
+            {keys.map((k) => {
+              const isLeft = k.note < 60;
+              const isPressed = pressedKeys.has(k.note);
+              const isTarget = targetNotes.includes(k.note);
+              const isMiddleC = k.note === 60;
+
+              let bg = k.isBlack ? '#333' : '#fff';
+              let textColor = k.isBlack ? '#fff' : '#000';
+              let border = '1px solid #333';
+              let boxShadow = 'none';
+
+              if (isPressed) {
+                bg = isLeft ? '#1976d2' : '#f57c00';
+                textColor = '#ffffff';
+                boxShadow = isLeft ? '0 0 12px rgba(33, 150, 243, 0.9)' : '0 0 12px rgba(255, 152, 0, 0.9)';
+                border = isLeft ? '2px solid #0d47a1' : '2px solid #bf360c';
+              } else if (isTarget) {
+                if (isLeft) {
+                  bg = k.isBlack ? '#1565c0' : '#bbdefb';
+                  textColor = k.isBlack ? '#ffffff' : '#0d47a1';
+                  border = '1px solid #1565c0';
+                } else {
+                  bg = k.isBlack ? '#e65100' : '#ffe082';
+                  textColor = k.isBlack ? '#ffffff' : '#bf360c';
+                  border = '1px solid #e65100';
+                }
+              }
+
+              return (
+                <div
+                  key={k.note}
+                  onMouseDown={() => {
+                    handleMidiMessage(144, k.note, 80);
+                  }}
+                  onMouseUp={() => {
+                    handleMidiMessage(128, k.note, 0);
+                  }}
+                  onMouseLeave={() => {
+                    handleMidiMessage(128, k.note, 0);
+                  }}
+                  style={{
+                    width: k.isBlack ? 20 : 30, // Chỉnh nhỏ lại một chút
+                    height: k.isBlack ? 90 : 150,
+                    background: bg,
+                    border,
+                    boxShadow,
+                    marginLeft: k.isBlack ? -10 : 0,
+                    marginRight: k.isBlack ? -10 : 0,
+                    zIndex: isPressed ? 2 : (k.isBlack ? 1 : 0),
+                    color: textColor,
+                    display: 'flex',
+                    alignItems: 'flex-end',
+                    justifyContent: 'center',
+                    paddingBottom: 5,
+                    cursor: 'pointer',
+                    borderRadius: '0 0 4px 4px',
+                    userSelect: 'none',
+                    flexShrink: 0,
+                    transition: 'background 0.08s ease, box-shadow 0.08s ease',
+                    position: 'relative'
+                  }}
+                >
+                  <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    opacity: (k.label.includes('C') || isTarget || isPressed) ? 1 : 0
+                  }}>
+                    {currentFingeringMap[k.note] && (
+                      <div style={{
+                        width: 15,
+                        height: 15,
+                        borderRadius: '50%',
+                        backgroundColor: isLeft ? '#1565c0' : '#e65100',
+                        color: 'white',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: 10,
+                        fontWeight: 'bold',
+                        marginBottom: 2,
+                        boxShadow: '0 1px 2px rgba(0,0,0,0.4)',
+                        border: '1px solid #fff'
+                      }}>
+                        {currentFingeringMap[k.note]}
+                      </div>
+                    )}
+                    {isTarget && !currentFingeringMap[k.note] && (
+                      <div style={{
+                        width: 7,
+                        height: 7,
+                        borderRadius: '50%',
+                        backgroundColor: isLeft ? '#1565c0' : '#e65100',
+                        marginBottom: 3
+                      }} />
+                    )}
+                    <span style={{
+                      fontSize: isMiddleC ? 11 : 10,
+                      fontWeight: isMiddleC ? 'bold' : 'normal',
+                      color: isMiddleC && !isPressed && !isTarget ? '#d32f2f' : 'inherit'
+                    }}>
+                      {k.label}
+                    </span>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>
