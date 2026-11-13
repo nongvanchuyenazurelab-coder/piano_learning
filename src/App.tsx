@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { Renderer, Stave, StaveNote, Formatter, Accidental, StaveConnector, Dot, Annotation } from 'vexflow';
 // @ts-ignore
 import Soundfont from 'soundfont-player';
+import ReflexTrainer from './ReflexTrainer';
 
 const EXERCISES = [
   {
@@ -251,6 +252,12 @@ function App() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const mainStageScrollRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  const [activeMainTab, setActiveMainTab] = useState<'studio' | 'reflex'>('studio');
+  const activeMainTabRef = useRef<'studio' | 'reflex'>('studio');
+  activeMainTabRef.current = activeMainTab;
+
+  const [lastMidiInputEvent, setLastMidiInputEvent] = useState<{ statusByte: number; note: number; velocity: number; timestamp: number } | null>(null);
 
   const [viewMode, setViewMode] = useState<'split' | 'waterfall' | 'sheet'>('split');
   const [midiStatus, setMidiStatus] = useState<string>('Bấm vào màn hình để bật âm thanh');
@@ -1230,10 +1237,14 @@ function App() {
     const noteName = noteNames[note % 12];
     const octave = Math.floor(note / 12) - 1;
 
+    setLastMidiInputEvent({ statusByte, note, velocity, timestamp: Date.now() });
+
     if (isNoteOn) {
       setLastMidiEvent(`${noteName}${octave} (MIDI: ${note})`);
       setPressedKeys(prev => new Set(prev).add(note));
-      playNoteSound(note, velocity);
+      if (activeMainTabRef.current === 'studio') {
+        playNoteSound(note, velocity);
+      }
     } else if (isNoteOff) {
       setPressedKeys(prev => {
         const newSet = new Set(prev);
@@ -1289,6 +1300,7 @@ function App() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (activeMainTabRef.current === 'reflex') return;
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement) return;
       if (e.repeat) return;
       const key = e.key.toLowerCase();
@@ -1346,49 +1358,106 @@ function App() {
       {/* 1. TOP HEADER & STUDIO CONTROLS (Full-Width, Sleek Dark Studio) */}
       <header style={{ background: '#131722', borderBottom: '1px solid #232938', padding: '10px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '15px', position: 'sticky', top: 0, zIndex: 100 }}>
         
-        {/* Logo & Song Selector */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+        {/* Logo & Navigation Tabs */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold', fontSize: '18px', color: '#fff', letterSpacing: '-0.5px' }}>
             <span style={{ fontSize: '24px' }}>🎹</span>
             <span>PIANO STUDIO</span>
             <span style={{ fontSize: '11px', background: '#3b82f6', color: '#fff', padding: '2px 6px', borderRadius: '4px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Pro</span>
           </div>
 
-          <select 
-            value={selectedExercise}
-            onChange={(e) => {
-              const idx = parseInt(e.target.value);
-              setSelectedExercise(idx);
-              setInputText(EXERCISES[idx].sheet);
-              setTimeSig(EXERCISES[idx].timeSig);
-              const exerciseBpm = EXERCISES[idx].bpm || 90;
-              setBpm(exerciseBpm);
-              loadCustomSheet(EXERCISES[idx].sheet, EXERCISES[idx].timeSig);
-            }}
-            style={{ 
-              background: '#1e2433', 
-              color: '#f8fafc', 
-              border: '1px solid #334155', 
-              padding: '8px 14px', 
-              fontSize: '14px', 
-              borderRadius: '6px', 
-              cursor: 'pointer',
-              fontWeight: 500,
-              maxWidth: '380px',
-              outline: 'none'
-            }}
-          >
-            {EXERCISES.map((ex, index) => (
-              <option key={index} value={index}>{ex.name} ({ex.timeSig})</option>
-            ))}
-          </select>
+          {/* Navigation Tabs: Studio vs Reflex Trainer */}
+          <div style={{ display: 'flex', background: '#0b0e14', padding: '3px', borderRadius: '8px', border: '1px solid #2d3748' }}>
+            <button
+              onClick={() => {
+                if (isPlaying) stopAutoPlay();
+                setActiveMainTab('studio');
+              }}
+              style={{
+                padding: '6px 14px',
+                fontSize: '13px',
+                fontWeight: 'bold',
+                borderRadius: '6px',
+                border: 'none',
+                cursor: 'pointer',
+                background: activeMainTab === 'studio' ? 'linear-gradient(135deg, #2563eb, #3b82f6)' : 'transparent',
+                color: activeMainTab === 'studio' ? '#ffffff' : '#94a3b8',
+                boxShadow: activeMainTab === 'studio' ? '0 2px 8px rgba(37,99,235,0.4)' : 'none',
+                transition: 'all 0.2s ease',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
+            >
+              <span>🎹</span>
+              <span>Học Đàn &amp; Bài Tập</span>
+            </button>
+            <button
+              onClick={() => {
+                if (isPlaying) stopAutoPlay();
+                setActiveMainTab('reflex');
+              }}
+              style={{
+                padding: '6px 14px',
+                fontSize: '13px',
+                fontWeight: 'bold',
+                borderRadius: '6px',
+                border: 'none',
+                cursor: 'pointer',
+                background: activeMainTab === 'reflex' ? 'linear-gradient(135deg, #10b981, #059669)' : 'transparent',
+                color: activeMainTab === 'reflex' ? '#ffffff' : '#94a3b8',
+                boxShadow: activeMainTab === 'reflex' ? '0 2px 8px rgba(16,185,129,0.4)' : 'none',
+                transition: 'all 0.2s ease',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
+            >
+              <span>🎯</span>
+              <span>Luyện Phản Xạ Nốt &amp; Hợp Âm</span>
+              <span style={{ fontSize: '10px', background: '#ef4444', color: '#fff', padding: '1px 5px', borderRadius: '10px', fontWeight: 'bold' }}>MỚI</span>
+            </button>
+          </div>
+
+          {activeMainTab === 'studio' && (
+            <select 
+              value={selectedExercise}
+              onChange={(e) => {
+                const idx = parseInt(e.target.value);
+                setSelectedExercise(idx);
+                setInputText(EXERCISES[idx].sheet);
+                setTimeSig(EXERCISES[idx].timeSig);
+                const exerciseBpm = EXERCISES[idx].bpm || 90;
+                setBpm(exerciseBpm);
+                loadCustomSheet(EXERCISES[idx].sheet, EXERCISES[idx].timeSig);
+              }}
+              style={{ 
+                background: '#1e2433', 
+                color: '#f8fafc', 
+                border: '1px solid #334155', 
+                padding: '8px 14px', 
+                fontSize: '14px', 
+                borderRadius: '6px', 
+                cursor: 'pointer',
+                fontWeight: 500,
+                maxWidth: '380px',
+                outline: 'none'
+              }}
+            >
+              {EXERCISES.map((ex, index) => (
+                <option key={index} value={index}>{ex.name} ({ex.timeSig})</option>
+              ))}
+            </select>
+          )}
         </div>
 
         {/* Playback & Audio Controls */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
           
-          {/* Play/Pause Button */}
-          <button 
+          {activeMainTab === 'studio' && (
+            <>
+              {/* Play/Pause Button */}
+              <button 
             onClick={isPlaying ? stopAutoPlay : startAutoPlay}
             style={{ 
               padding: '8px 18px', 
@@ -1487,20 +1556,6 @@ function App() {
             />
           </div>
 
-          {/* Volume */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#1e2433', padding: '6px 12px', borderRadius: '6px', border: '1px solid #334155' }}>
-            <span style={{ fontSize: '13px' }}>🔊</span>
-            <input 
-              type="range" 
-              min="0" 
-              max="200" 
-              value={volume}
-              onChange={(e) => setVolume(parseInt(e.target.value))}
-              style={{ width: '70px', cursor: 'pointer' }}
-            />
-            <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#38bdf8', minWidth: '36px' }}>{volume}%</span>
-          </div>
-
           {/* View Mode Switcher */}
           <div style={{ display: 'flex', background: '#0f172a', padding: '3px', borderRadius: '6px', border: '1px solid #334155' }}>
             <button
@@ -1549,6 +1604,22 @@ function App() {
               ⚡ Cả hai
             </button>
           </div>
+            </>
+          )}
+
+          {/* Volume */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#1e2433', padding: '6px 12px', borderRadius: '6px', border: '1px solid #334155' }}>
+            <span style={{ fontSize: '13px' }}>🔊</span>
+            <input 
+              type="range" 
+              min="0" 
+              max="200" 
+              value={volume}
+              onChange={(e) => setVolume(parseInt(e.target.value))}
+              style={{ width: '70px', cursor: 'pointer' }}
+            />
+            <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#38bdf8', minWidth: '36px' }}>{volume}%</span>
+          </div>
 
           {/* MIDI status badge */}
           <div 
@@ -1568,7 +1639,15 @@ function App() {
         </div>
       </header>
 
-      {/* 2. SECONDARY INFO & HAND STATUS BAR */}
+      {activeMainTab === 'reflex' ? (
+        <ReflexTrainer 
+          midiInputEvent={lastMidiInputEvent}
+          midiDevices={midiDevices}
+          midiStatus={midiStatus}
+        />
+      ) : (
+        <>
+          {/* 2. SECONDARY INFO & HAND STATUS BAR */}
       <div style={{ background: '#10141f', borderBottom: '1px solid #1e2638', padding: '8px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
         
         {/* Color Code Legend */}
@@ -1893,6 +1972,8 @@ function App() {
           </div>
         </details>
       </footer>
+        </>
+      )}
 
     </div>
   );

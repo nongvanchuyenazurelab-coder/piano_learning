@@ -49,3 +49,28 @@ button {
 input, select {
   font-family: inherit;
 }
+
+/* Animations cho phần Luyện Phản Xạ */
+@keyframes staffShake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-8px); }
+  40% { transform: translateX(8px); }
+  60% { transform: translateX(-5px); }
+  80% { transform: translateX(5px); }
+}
+
+.animate-staff-shake {
+  animation: staffShake 0.36s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+
+@keyframes notePop {
+  0% { opacity: 0; transform: scale(0.72) translateY(4px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.note-enter {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: notePop 0.2s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
